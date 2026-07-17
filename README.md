@@ -59,6 +59,6 @@ curl -i http://127.0.0.1:8000/tasks
 ```
 
 ## Swagger UI
-![Swagger UI] (Swagger1.png)
+![Swagger UI](Swagger1.png)
 
 http://127.0.0.1:8000/docs
