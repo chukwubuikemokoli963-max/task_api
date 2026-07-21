@@ -2,7 +2,7 @@
 
 ## Description
 
-This is a simple CRUD (Create, Read, Update, Delete) REST API built with FastAPI. It allows users to create, view, update, and delete tasks stored in memory.
+A CRUD (Create, Read, Update, Delete) REST API built with FastAPI, backed by PostgreSQL and running as a Docker Compose stack (FastAPI app + Postgres + Redis).
 
 ## Features
 
@@ -10,34 +10,55 @@ This is a simple CRUD (Create, Read, Update, Delete) REST API built with FastAPI
 - Read tasks
 - Update a task
 - Delete a task
-- Search a task using query parameter
-- View task statistics
-- Health check endpoint
-- Reset endpoint
+- Search a task using a query parameter
+- View task statistics (`/stats`)
+- Health check endpoint (`/health`)
+- Redis connectivity check (`/redis-check`)
 - Interactive Swagger documentation
 
-## Mortality Experiment
+## Architecture Note
 
-After restarting the FastAPI server, all tasks returned to their original state because the application stores data in memory instead of a database. Any changes made while the server was running were lost when it restarted.
+The original implementation (Assignment 2) stored tasks in memory — data was lost every time the server restarted.
 
-## Installation
+This assignment replaces the in-memory store with a PostgreSQL-backed repository (`repository.py`). The service and route logic in `main.py` did not change in shape — only the data access layer was swapped, proving the separation between routes/service and storage.
 
-Install the required packages:
+## Tech Stack
 
+- FastAPI
+- PostgreSQL 16
+- Redis 7 (stretch goal)
+- SQLAlchemy
+- Docker Compose
+
+## Setup
+
+1. Copy the environment template and fill in your own values:
 ```bash
-pip install -r requirements.txt
+   cp .env.example .env
+```
+   `.env` is gitignored and never committed — only `.env.example` is tracked.
+
+2. Install dependencies (only needed if running outside Docker):
+```bash
+   pip install -r requirements.txt
 ```
 
-## Run the API
+## Run the Full Stack
 
 ```bash
-python -m uvicorn main:app --reload
+docker compose up --build
 ```
 
-Then open:
+This starts three services together: `db` (Postgres), `redis`, and `app` (FastAPI). The app waits for Postgres to report healthy before starting.
 
-- http://127.0.0.1:8000
-- Swagger UI: http://127.0.0.1:8000/docs
+Once running, open:
+- API root: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+
+To stop the stack (keeps your data — the Postgres volume is preserved):
+```bash
+docker compose down
+```
 
 ## API Endpoints
 
@@ -45,12 +66,14 @@ Then open:
 |--------|----------|-------------|
 | GET | / | API information |
 | GET | /health | Health check |
+| GET | /redis-check | Redis connectivity check |
 | GET | /tasks | Get all tasks |
-| GET | /tasks?search=Build | Search tasks |
+| GET | /tasks?search=Build | Search tasks by title |
 | GET | /tasks/{task_id} | Get one task |
 | POST | /tasks | Create a task |
 | PUT | /tasks/{task_id} | Update a task |
 | DELETE | /tasks/{task_id} | Delete a task |
+| GET | /stats | Task statistics (total/done/open) |
 
 ## Sample curl Command
 
@@ -64,13 +87,26 @@ curl -i http://127.0.0.1:8000/tasks
 http://127.0.0.1:8000/docs
 
 ## Persistence Verification
-Started the stack with `docker compose up --build`.
-Created a task via `POST /tasks`.
-Confirmed it existed via `GET /tasks`.
-Ran `docker compose down` (containers stopped and removed, volume preserved).
-Ran `docker compose up` to restart the stack.
-Ran `GET /tasks` again — the previously created task was still present, confirming data survives an app + container restart.
 
-## Architecture Note
-The in-memory repository was replaced with a PostgreSQL-backed repository (`repository.py`).
-The service and route logic in `main.py` did not change in shape — only the data access layer was swapped, proving the separation between routes/service and storage.
+1. Started the stack with `docker compose up --build`.
+2. Created a task via `POST /tasks`.
+3. Confirmed it existed via `GET /tasks`.
+4. Ran `docker compose down` (containers stopped and removed, volume preserved).
+5. Ran `docker compose up` to restart the stack.
+6. Ran `GET /tasks` again — the previously created task was still present, confirming data survives an app + container restart.
+
+## Stretch Goal: Redis
+
+A `redis` service was added to `docker-compose.yml`, and a `GET /redis-check` endpoint pings it to confirm connectivity from the FastAPI app.
+
+## Stretch Goal: Index Performance
+
+Seeded `tasks` with 50,000 rows via `generate_series`.
+
+**Before index (Seq Scan):**
+Execution Time: 11.097 ms — full scan checking all 50,000 rows to find the match.
+
+**After `CREATE INDEX idx_tasks_title ON tasks(title);`:**
+Execution Time: 0.372 ms — direct index lookup, no table scan needed.
+
+~30x faster on an indexed equality lookup.

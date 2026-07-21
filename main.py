@@ -67,3 +67,13 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 @app.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
     return repository.get_stats(db)
+
+import redis as redis_lib
+redis_client = redis_lib.Redis(host="redis", port=6379, decode_responses=True)
+@app.get("/redis-check")
+def redis_check():
+    try:
+        pong = redis_client.ping()
+        return {"redis": "connected", "ping": pong}
+    except Exception as e:
+        return {"redis": "unreachable", "error": str(e)}
