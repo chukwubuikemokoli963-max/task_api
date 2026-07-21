@@ -62,3 +62,15 @@ curl -i http://127.0.0.1:8000/tasks
 ![Swagger UI](Swagger1.png)
 
 http://127.0.0.1:8000/docs
+
+## Persistence Verification
+Started the stack with `docker compose up --build`.
+Created a task via `POST /tasks`.
+Confirmed it existed via `GET /tasks`.
+Ran `docker compose down` (containers stopped and removed, volume preserved).
+Ran `docker compose up` to restart the stack.
+Ran `GET /tasks` again — the previously created task was still present, confirming data survives an app + container restart.
+
+## Architecture Note
+The in-memory repository was replaced with a PostgreSQL-backed repository (`repository.py`).
+The service and route logic in `main.py` did not change in shape — only the data access layer was swapped, proving the separation between routes/service and storage.
