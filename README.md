@@ -1,112 +1,263 @@
-# Task CRUD API
+# Task API with Supabase Authentication
 
 ## Description
 
-A CRUD (Create, Read, Update, Delete) REST API built with FastAPI, backed by PostgreSQL and running as a Docker Compose stack (FastAPI app + Postgres + Redis).
+A secure REST API built with **FastAPI**, **PostgreSQL**, **Supabase Authentication**, **Redis**, and **Docker Compose**.
+
+The API allows users to register, log in, access protected endpoints using JWT authentication, log out, and perform CRUD operations on tasks. Authentication is handled by Supabase, while PostgreSQL stores application data.
+
+---
 
 ## Features
 
+### Authentication
+
+- User Sign Up
+- User Login
+- JWT Access Token Authentication
+- Protected Routes
+- User Logout
+- Swagger UI Bearer Authentication
+
+### Task Management
+
 - Create a task
-- Read tasks
+- Read all tasks
+- Search tasks
 - Update a task
 - Delete a task
-- Search a task using a query parameter
-- View task statistics (`/stats`)
-- Health check endpoint (`/health`)
-- Redis connectivity check (`/redis-check`)
-- Interactive Swagger documentation
+- View task statistics
 
-## Architecture Note
+### Utilities
 
-The original implementation (Assignment 2) stored tasks in memory — data was lost every time the server restarted.
+- Health Check
+- Redis Connectivity Check
+- Interactive Swagger Documentation
 
-This assignment replaces the in-memory store with a PostgreSQL-backed repository (`repository.py`). The service and route logic in `main.py` did not change in shape — only the data access layer was swapped, proving the separation between routes/service and storage.
+---
 
 ## Tech Stack
 
 - FastAPI
 - PostgreSQL 16
-- Redis 7 (stretch goal)
 - SQLAlchemy
+- Supabase Auth
+- Redis 7
 - Docker Compose
+- Swagger UI
 
-## Setup
+---
 
-1. Copy the environment template and fill in your own values:
-```bash
-   cp .env.example .env
+## Project Structure
+
 ```
-   `.env` is gitignored and never committed — only `.env.example` is tracked.
-
-2. Install dependencies (only needed if running outside Docker):
-```bash
-   pip install -r requirements.txt
+task_api/
+│
+├── database.py
+├── repository.py
+├── schemas.py
+├── models.py
+├── main.py
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+└── README.md
 ```
 
-## Run the Full Stack
+---
+
+## Environment Variables
+
+Create a `.env` file using `.env.example`.
+
+```env
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_anon_key
+DATABASE_URL=postgresql://postgres:your_password@db:5432/tasks_db
+```
+
+> **Important:** Never commit your `.env` file. Only `.env.example` should be tracked by Git.
+
+---
+
+## Running the Project
+
+Clone the repository.
+
+```bash
+git clone <your_repository_url>
+```
+
+Navigate into the project.
+
+```bash
+cd task_api
+```
+
+Start the application.
 
 ```bash
 docker compose up --build
 ```
 
-This starts three services together: `db` (Postgres), `redis`, and `app` (FastAPI). The app waits for Postgres to report healthy before starting.
+The stack starts:
 
-Once running, open:
-- API root: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
+- PostgreSQL
+- Redis
+- FastAPI
 
-To stop the stack (keeps your data — the Postgres volume is preserved):
-```bash
-docker compose down
+Open:
+
+API
+
+```
+http://localhost:8000
 ```
 
-## API Endpoints
+Swagger Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | / | API information |
-| GET | /health | Health check |
-| GET | /redis-check | Redis connectivity check |
-| GET | /tasks | Get all tasks |
-| GET | /tasks?search=Build | Search tasks by title |
-| GET | /tasks/{task_id} | Get one task |
-| POST | /tasks | Create a task |
-| PUT | /tasks/{task_id} | Update a task |
-| DELETE | /tasks/{task_id} | Delete a task |
-| GET | /stats | Task statistics (total/done/open) |
-
-## Sample curl Command
-
-```bash
-curl -i http://127.0.0.1:8000/tasks
 ```
+http://localhost:8000/docs
+```
+
+---
+
+# Authentication Flow
+
+1. Register a user using:
+
+```
+POST /auth/signup
+```
+
+2. Log in using:
+
+```
+POST /auth/login
+```
+
+The response returns:
+
+- access_token
+- refresh_token
+
+3. Click **Authorize** in Swagger.
+
+4. Paste the JWT access token.
+
+5. Access protected endpoints.
+
+6. Log out using:
+
+```
+POST /auth/logout
+```
+
+Authentication is verified using Supabase JWT validation before protected endpoints are executed.
+
+---
+
+# API Endpoints
+
+| Method | Endpoint | Authentication | Description |
+|---------|----------|----------------|-------------|
+| GET | / | No | API information |
+| GET | /health | No | Health check |
+| GET | /public/info | No | Public endpoint |
+| POST | /auth/signup | No | Register a new user |
+| POST | /auth/login | No | Login user |
+| POST | /auth/logout | Yes | Logout user |
+| GET | /protected/profile | Yes | Current user profile |
+| GET | /tasks | No | Get all tasks |
+| GET | /tasks/{id} | No | Get one task |
+| POST | /tasks | No | Create task |
+| PUT | /tasks/{id} | No | Update task |
+| DELETE | /tasks/{id} | No | Delete task |
+| GET | /stats | No | Task statistics |
+| GET | /redis-check | No | Redis connectivity |
+
+---
+
+## Authentication
+
+Protected endpoints require a Bearer Token.
+
+Example:
+
+```
+Authorization: Bearer <access_token>
+```
+
+If:
+
+- the token is missing,
+- malformed,
+- expired,
+- or invalid,
+
+the API returns
+
+```
+401 Unauthorized
+```
+
+---
 
 ## Swagger UI
-![Swagger UI](Swagger1.png)
 
-http://127.0.0.1:8000/docs
+FastAPI automatically generates interactive API documentation.
+
+Open:
+
+```
+http://localhost:8000/docs
+```
+
+Click **Authorize**, paste your access token, and test protected endpoints directly from the browser.
+
+Include your Swagger screenshot below.
+
+```markdown
+![Swagger UI](Swagger1.png)
+```
+
+---
 
 ## Persistence Verification
 
-1. Started the stack with `docker compose up --build`.
-2. Created a task via `POST /tasks`.
-3. Confirmed it existed via `GET /tasks`.
-4. Ran `docker compose down` (containers stopped and removed, volume preserved).
-5. Ran `docker compose up` to restart the stack.
-6. Ran `GET /tasks` again — the previously created task was still present, confirming data survives an app + container restart.
+The application uses PostgreSQL as persistent storage.
 
-## Stretch Goal: Redis
+Verification:
 
-A `redis` service was added to `docker-compose.yml`, and a `GET /redis-check` endpoint pings it to confirm connectivity from the FastAPI app.
+1. Start the Docker stack.
+2. Create a task.
+3. Verify the task exists.
+4. Stop the containers.
 
-## Stretch Goal: Index Performance
+```
+docker compose down
+```
 
-Seeded `tasks` with 50,000 rows via `generate_series`.
+5. Restart.
 
-**Before index (Seq Scan):**
-Execution Time: 11.097 ms — full scan checking all 50,000 rows to find the match.
+```
+docker compose up
+```
 
-**After `CREATE INDEX idx_tasks_title ON tasks(title);`:**
-Execution Time: 0.372 ms — direct index lookup, no table scan needed.
+6. Verify the task still exists.
 
-~30x faster on an indexed equality lookup.
+---
+
+## Redis Stretch Goal
+
+Redis was added as an additional service.
+
+The endpoint
+
+```
+GET /redis-check
+```
+
+confirms communication between FastAPI and Redis.
+
+---
