@@ -14,24 +14,6 @@ app = FastAPI()
 def public_info():
     return {"message": "Welcome stranger! This info is public."}
 
-@app.get("/protected/profile")
-def protected_profile(authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Access token required")
-
-    token = authorization.split(" ")[1]
-
-    try:
-        result = supabase.auth.get_user(token)
-        user = result.user
-        return {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
 def get_db():
     db = SessionLocal()
     try:
@@ -49,6 +31,30 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Access token required")
+
+    token = authorization.split(" ")[1]
+
+    try:
+        result = supabase.auth.get_user(token)
+        return result.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+@app.get("/protected/profile")
+def protected_profile(user = Depends(get_current_user)):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at,
+    }
+
+@app.post("/auth/logout", status_code=204)
+def logout(user = Depends(get_current_user)):
+    supabase.auth.sign_out()
+    return
 
 @app.get("/")
 def home():
