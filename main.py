@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 from database import Base, engine, SessionLocal
+from typing import Optional
 import models
 import schemas
 import repository
@@ -25,7 +26,6 @@ load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -88,3 +88,29 @@ def redis_check():
         return {"redis": "connected", "ping": pong}
     except Exception as e:
         return {"redis": "unreachable", "error": str(e)}
+
+@app.post("/auth/signup", status_code=201)
+def signup(email: Optional[str] = Body(None), password: Optional[str] = Body(None)):
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    try:
+        result = supabase.auth.sign_up({"email": email, "password": password})
+        return {"user": result.user}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/login")
+def login(email: Optional[str] = Body(None), password: Optional[str] = Body(None)):
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    try:
+        result = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        return {
+            "access_token": result.session.access_token,
+            "refresh_token": result.session.refresh_token,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid login credentials")
