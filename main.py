@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Body
+from fastapi import FastAPI, HTTPException, Depends, Body, Header
 from sqlalchemy.orm import Session
 from database import Base, engine, SessionLocal
 from typing import Optional
@@ -10,6 +10,16 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+@app.get("/public/info")
+def public_info():
+    return {"message": "Welcome stranger! This info is public."}
+
+@app.get("/protected/profile")
+def protected_profile(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Access token required")
+    token = authorization.split(" ")[1]
+    return {"message": "Token received (not yet verified)", "token_preview": token[:10] + "..."}
 
 def get_db():
     db = SessionLocal()
@@ -114,3 +124,4 @@ def login(email: Optional[str] = Body(None), password: Optional[str] = Body(None
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid login credentials")
+
